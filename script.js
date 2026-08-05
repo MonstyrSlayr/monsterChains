@@ -2,7 +2,7 @@ import { getRarities, getClasses, getMonsters, getIslands } from "https://monsty
 
 const RARITY = getRarities();
 const MCLASS = getClasses();
-const allowedRarities = [RARITY.COMMON, RARITY.ADULT, RARITY.MAJOR];
+const allowedRarities = [RARITY.COMMON, RARITY.ADULT, RARITY.MAJOR, RARITY.TONAL, RARITY.ASTRAL];
 const monsters = await getMonsters();
 
 const commonMonsters = monsters
