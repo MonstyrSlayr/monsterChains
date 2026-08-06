@@ -120,7 +120,7 @@ input
     background-color: #f0f0f0;
 }
 
-#islandConditionalDiv
+#islandConditionalDiv, #actConditionalDiv
 {
     display: flex;
     flex-wrap: wrap;

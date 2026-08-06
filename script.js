@@ -1,4 +1,4 @@
-import { getRarities, getClasses, getMonsters, getIslands } from "https://monstyrslayr.github.io/msmTools/monsters.js";
+import { getRarities, getClasses, getMonsters, getIslands, getActs } from "https://monstyrslayr.github.io/msmTools/monsters.js";
 
 const RARITY = getRarities();
 const MCLASS = getClasses();
@@ -6,7 +6,7 @@ const allowedRarities = [RARITY.COMMON, RARITY.ADULT, RARITY.MAJOR, RARITY.TONAL
 const monsters = await getMonsters();
 
 const commonMonsters = monsters
-                        .filter((monster) => allowedRarities.includes(monster.rarity))
+                        .filter((monster) => allowedRarities.includes(monster.rarity) || monster.acts.size > 0)
                         .map(monster => ({ ...monster })); // make deep copy to prevent name shenanigans
 
 // standardize names
@@ -15,6 +15,7 @@ for (const monster of commonMonsters)
     monster.name = monster.name.replace(/\b(Adult|Major)\b/gi, "").trim().replace(/\s+/g, " ");
 }
 
+const acts = getActs();
 const islands = getIslands();
 
 let includeDipsters = true;
@@ -37,11 +38,11 @@ document.getElementById("dipsterDiv").addEventListener("click", function()
         this.classList.remove("checked");
     }
 
-    monsterGraph = makeGraph(commonMonsters, excludedIslands);
+    monsterGraph = makeGraph(commonMonsters, excludedActs, excludedIslands);
     renderPathChain(findShortestPath(selectedA, selectedB, monsterGraph));
 });
 
-function makeGraph(allMonsters, disabledIslands = new Set())
+function makeGraph(allMonsters, disabledActs = new Set(), disabledIslands = new Set())
 {
     const graph = new Map(); // Map<object|string, set<object|string>>
 
@@ -50,6 +51,16 @@ function makeGraph(allMonsters, disabledIslands = new Set())
         if (!includeDipsters && monster.class == MCLASS.DIPSTER) continue;
 
         if (!graph.has(monster)) graph.set(monster, new Set());
+
+        for (const act of monster.acts)
+        {
+            if (disabledActs.has(act)) continue;
+
+            if (!graph.has(act)) graph.set(act, new Set());
+
+            graph.get(monster).add(act);
+            graph.get(act).add(monster);
+        }
 
         for (const island of monster.islands)
         {
@@ -124,6 +135,12 @@ function renderPathChain(path)
             img.src = node.symbol;
             label.textContent = node.name;
         }
+        else if (node.poster)
+        {
+            // It's an act
+            img.src = node.poster;
+            label.textContent = node.name;
+        }
         else if (node.portrait)
         {
             // It's a monster
@@ -149,8 +166,68 @@ function renderPathChain(path)
 let selectedA = null;
 let selectedB = null;
 
+let excludedActs = new Set();
 let excludedIslands = new Set();
+const actConditionalDiv = document.getElementById("actConditionalDiv");
 const islandConditionalDiv = document.getElementById("islandConditionalDiv");
+
+for (const act of acts)
+{
+    const lilDiv = document.createElement("div");
+    lilDiv.className = "checkboxDiv";
+    lilDiv.id = act.name + "Div";
+    actConditionalDiv.append(lilDiv);
+
+    const imageLabel = document.createElement("label");
+    lilDiv.append(imageLabel);
+
+    const daImg = document.createElement("img");
+    daImg.src = act.poster;
+    daImg.classList.add("checkboxImage");
+    imageLabel.append(daImg);
+
+    const checkbox = document.createElement("input");
+    checkbox.id = act.name + "Checkbox";
+    checkbox.classList.add("checkbox");
+    checkbox.name = act.name;
+    checkbox.type = "checkbox";
+    checkbox.checked = true;
+    lilDiv.append(checkbox);
+
+    lilDiv.addEventListener("click", function()
+    {
+        checkbox.click();
+
+        if (checkbox.checked)
+        {
+            lilDiv.classList.add("checked");
+            excludedActs.delete(act);
+        }
+        else
+        {
+            lilDiv.classList.remove("checked");
+            excludedActs.add(act);
+        }
+
+        monsterGraph = makeGraph(commonMonsters, excludedActs, excludedIslands);
+        renderPathChain(findShortestPath(selectedA, selectedB, monsterGraph));
+    })
+
+    if (checkbox.checked)
+    {
+        lilDiv.classList.add("checked");
+        excludedActs.delete(act);
+    }
+    else
+    {
+        lilDiv.classList.remove("checked");
+        excludedActs.add(act);
+    }
+
+    const label = document.createElement("label");
+    label.textContent = "Include " + act.name;
+    lilDiv.append(label);
+}
 
 for (const island of islands)
 {
@@ -193,7 +270,7 @@ for (const island of islands)
             excludedIslands.add(island);
         }
 
-        monsterGraph = makeGraph(commonMonsters, excludedIslands);
+        monsterGraph = makeGraph(commonMonsters, excludedActs, excludedIslands);
         renderPathChain(findShortestPath(selectedA, selectedB, monsterGraph));
     })
 
@@ -213,7 +290,7 @@ for (const island of islands)
     lilDiv.append(label);
 }
 
-monsterGraph = makeGraph(commonMonsters, excludedIslands);
+monsterGraph = makeGraph(commonMonsters, excludedActs, excludedIslands);
 
 function pathToString(path)
 {
